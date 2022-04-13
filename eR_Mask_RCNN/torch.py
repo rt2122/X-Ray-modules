@@ -9,29 +9,34 @@ from pytorch_References.engine import train_one_epoch, evaluate
 from typing import Type, Tuple, List
 from copy import deepcopy
 import os
+import pandas as pd
+import numpy as np
 
 from eR_Mask_RCNN.transforms import get_augmentation
 
 def MRCNN_model(num_classes: int) -> MaskRCNN:
-        backbone = torchvision.models.detection.backbone_utils.resnet_fpn_backbone(
-                'resnet101', pretrained=True)
-        anchor_generator = AnchorGenerator(sizes=(8, 16, 32, 64, 128),
-                                           aspect_ratios=(0.5, 1.0, 2.0))
-        roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
-                                                        output_size=7,
-                                                        sampling_ratio=2)
+    '''
+    Create Mask R-CNN model with given number of classes.
+    '''
+    backbone = torchvision.models.detection.backbone_utils.resnet_fpn_backbone(
+            'resnet101', pretrained=True)
+    anchor_generator = AnchorGenerator(sizes=(8, 16, 32, 64, 128),
+                                       aspect_ratios=(0.5, 1.0, 2.0))
+    roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
+                                                    output_size=7,
+                                                    sampling_ratio=2)
 
-        mask_roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
-                                                             output_size=14,
-                                                             sampling_ratio=2)
+    mask_roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
+                                                         output_size=14,
+                                                         sampling_ratio=2)
 
-        model = MaskRCNN(backbone,
-                         num_classes=num_classes,
-                         rpn_anchor_generator=anchor_generator,
-                         box_roi_pool=roi_pooler,
-                         mask_roi_pool=mask_roi_pooler)
-        model.eval()
-        return model
+    model = MaskRCNN(backbone,
+                     num_classes=num_classes,
+                     rpn_anchor_generator=anchor_generator,
+                     box_roi_pool=roi_pooler,
+                     mask_roi_pool=mask_roi_pooler)
+    model.eval()
+    return model
 
 class My_Mask_RCNN:
     def __init__(self, num_classes: int, train_path: str, val_path: str, model_path: str,
@@ -64,13 +69,13 @@ class My_Mask_RCNN:
         self.save_hist_freq = save_hist_freq
 
     def prepare_data(self, Dataset_class: Type[torch.utils.data.Dataset], batch_size: int,
-                     add_aug: bool = True) -> None:
+            add_aug: bool = True, dataset_args: dict = {}) -> None:
         '''
         Create data loaders for train and test.
         '''
 
-        dataset = Dataset_class(self.train_path, get_augmentation(add_aug))
-        dataset_val = Dataset_class(self.val_path, get_augmentation(add_aug))
+        dataset = Dataset_class(self.train_path, get_augmentation(add_aug), **dataset_args)
+        dataset_val = Dataset_class(self.val_path, get_augmentation(add_aug), **dataset_args)
 
         self.data_loader = torch.utils.data.DataLoader(
             dataset, batch_size=batch_size, shuffle=True, num_workers=4,
@@ -140,7 +145,7 @@ class My_Mask_RCNN:
             new_metrics.append(new_line)
         return new_metrics 
 
-    def save_history() -> None:
+    def save_history(self) -> None:
         dirname = os.path.dirname(self.model_path)
 
         metrics = self.extract_metrics()
@@ -148,7 +153,7 @@ class My_Mask_RCNN:
         metrics.index.name = 'epoch'
         metrics.to_csv(os.path.join(dirname, 'metrics.csv'))
         
-        losses = pd.DataFrame(model.losses, index=np.arange(len(model.losses)))
+        losses = pd.DataFrame(self.losses, index=np.arange(len(self.losses)))
         losses.index.name='epoch'
         losses.to_csv(os.path.join(dirname, 'losses.csv'))
 
