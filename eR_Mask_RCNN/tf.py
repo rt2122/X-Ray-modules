@@ -1,36 +1,29 @@
 import sys
-from eR_Mask_RCNN.path import ROOT_DIR
-sys.path.append(ROOT_DIR)
-
 import os
 import numpy as np
-import pandas as pd
 import time
-
+from eR_Mask_RCNN.path import ROOT_DIR
 from astropy.io.fits import getdata
 from imgaug import augmenters as iaa
-
-#Mask-RCNN
+sys.path.append(ROOT_DIR)
+# Mask-RCNN
 from mrcnn import utils
 from mrcnn.config import Config
 from mrcnn import model as modellib
-
 from eR_Mask_RCNN.path import MODEL_DIR
 COCO_MODEL_PATH = os.path.join(MODEL_DIR, 'mask_rcnn_coco.h5')
-from eR_Mask_RCNN.common import cat2masks
+from eR_Mask_RCNN import cat2masks
 
 
 class eRDataset(utils.Dataset):
-    
-    def __init__(self, raw_size:int=3240, grid_size:int=270):
-        self.raw_size = raw_size 
+    def __init__(self, raw_size: int = 3240, grid_size: int = 270):
+        self.raw_size = raw_size
         self.grid_size = grid_size
         self.size = raw_size - 2 * grid_size
         super(eRDataset, self).__init__()
-    
-    def load_sources(self, set_dir: str): #or load_shapes()
+
+    def load_sources(self, set_dir: str): # or load_shapes()
         self.dir = set_dir
-        
         self.add_class('eR_sim', 1, 'ext')
         self.add_class('eR_sim', 2, 'point')
         

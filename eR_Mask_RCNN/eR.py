@@ -2,14 +2,18 @@ import torch
 import os
 import numpy as np
 from eR_Mask_RCNN.transforms import normalize_2d, get_bbox_from_mask
-from eR_Mask_RCNN.common import cat2masks
+from eR_Mask_RCNN import cat2masks
 from astropy.io.fits import getdata
 
-def load_image(path:str, raw_size: int, grid_size:int):
+def load_image(path: str, raw_size: int, grid_size: int):
+    '''
+    Load image from set path. Raw size - initial size of x,y dimensions. 
+    Grid size - width of maps cut after overlaying.
+    '''
     exp = getdata(os.path.join(path, 'exp_tile.fits.gz'), memmap=False)
     tile = getdata(os.path.join(path, 'tile.fits.gz'), memmap=False)
 
-    image = np.zeros([raw_size, raw_size, 1], dtype=np.float64)
+    image = np.zeros([raw_size, raw_size, 1], dtype=np.float32)
     image[:,:,0] = tile / exp
     image = np.nan_to_num(np.log(image))
     idx = slice(grid_size, raw_size - grid_size) #remove grid
@@ -69,3 +73,5 @@ class eR_Dataset(torch.utils.data.Dataset):
             image, target = self.transforms(image, target)
 
         return image, target
+    def __len__(self):
+        return len(self.sets)
