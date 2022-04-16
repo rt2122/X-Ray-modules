@@ -14,12 +14,13 @@ import numpy as np
 
 from eR_Mask_RCNN.transforms import get_augmentation
 
+
 def MRCNN_model(num_classes: int) -> MaskRCNN:
-    '''
+    """
     Create Mask R-CNN model with given number of classes.
-    '''
+    """
     backbone = torchvision.models.detection.backbone_utils.resnet_fpn_backbone(
-            'resnet101', pretrained=True)
+                'resnet101', pretrained=True) # noqa E126 
     anchor_generator = AnchorGenerator(sizes=(8, 16, 32, 64, 128),
                                        aspect_ratios=(0.5, 1.0, 2.0))
     roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
@@ -38,12 +39,13 @@ def MRCNN_model(num_classes: int) -> MaskRCNN:
     model.eval()
     return model
 
+
 class My_Mask_RCNN:
     def __init__(self, num_classes: int, train_path: str, val_path: str, model_path: str,
-            device: str = 'cuda', torch_home: str = None, save_hist_freq:int = 10) -> None:
-        '''
+                 device: str = 'cuda', torch_home: str = None, save_hist_freq: int = 10) -> None:
+        """
         Create model and get configuration.
-        '''
+        """
 
         self.train_path = train_path
         self.val_path = val_path
@@ -51,7 +53,7 @@ class My_Mask_RCNN:
             model_path = os.path.join(model_path, 'mrcnn_ep{}.pth')
         if torch_home is None:
             torch_home = os.path.dirname(model_path)
-        os.environ['TORCH_HOME'] = torch_home 
+        os.environ['TORCH_HOME'] = torch_home
         self.model_path = model_path
 
         self.model = MRCNN_model(num_classes)
@@ -63,17 +65,16 @@ class My_Mask_RCNN:
         self.optimizer = torch.optim.SGD(params, lr=0.001,
                                          momentum=0.9, weight_decay=0.0005)
         self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-                self.optimizer, milestones=[15, 25, 35, 50], gamma=0.1)
+                self.optimizer, milestones=[15, 25, 35, 50], gamma=0.1) # noqa 126
         self.losses = []
         self.metrics = []
         self.save_hist_freq = save_hist_freq
 
     def prepare_data(self, Dataset_class: Type[torch.utils.data.Dataset], batch_size: int,
-            add_aug: bool = True, dataset_args: dict = {}) -> None:
-        '''
+                     add_aug: bool = True, dataset_args: dict = {}) -> None:
+        """
         Create data loaders for train and test.
-        '''
-
+        """
         dataset = Dataset_class(self.train_path, get_augmentation(add_aug), **dataset_args)
         dataset_val = Dataset_class(self.val_path, get_augmentation(add_aug), **dataset_args)
 
@@ -86,9 +87,9 @@ class My_Mask_RCNN:
             collate_fn=utils.collate_fn)
 
     def train_model(self, num_epochs: int, print_freq: int = 120) -> None:
-        '''
-        Train initialized model.
-        '''
+        """
+        Train initialized model. prent_freq controls freqency for metrics output.
+        """
         for epoch in range(num_epochs):
             epoch_losses = {}
             epoch_metrics = {}
@@ -103,7 +104,7 @@ class My_Mask_RCNN:
             val_metr = deepcopy(
                 evaluate(self.model, self.data_loader_val, device=self.device).coco_eval)
             metr = {k: v.stats for k, v in metr.items()}
-            val_metr = {'val_'+k: v.stats for k, v in val_metr.items()}
+            val_metr = {'val_' + k: v.stats for k, v in val_metr.items()}
             epoch_metrics.update(metr)
             epoch_metrics.update(val_metr)
 
@@ -112,13 +113,13 @@ class My_Mask_RCNN:
             self.losses.append(epoch_losses)
             self.metrics.append(epoch_metrics)
 
-            if epoch % self.save_hist_freq == 0:
-                self.save_history()
+            if epoch % self.save_hist_freq == 0 or epoch == num_epochs - 1:
+                self.save_history(epoch)
 
     def make_prediction(self) -> Tuple[torch.Tensor, ...]:
-        '''
+        """
         Make prediction for first batch.
-        '''
+        """
         for images, gts in self.data_loader_val:
             break
 
@@ -131,10 +132,10 @@ class My_Mask_RCNN:
         return images[0], predictions[0], gts[0]
 
     def extract_metrics(self) -> List[dict]:
-        '''
+        """
         From all of the types of IoUs get only
         Average Precision and Average Recall at IoU=0.50:0.95.
-        '''
+        """
         new_metrics = []
         metrics = self.metrics
         for line in metrics:
@@ -143,22 +144,29 @@ class My_Mask_RCNN:
                 new_line[k + '_AP'] = v[0]
                 new_line[k + '_AR'] = v[6]
             new_metrics.append(new_line)
-        return new_metrics 
+        return new_metrics
 
-    def save_history(self) -> None:
+    def save_history(self, epoch) -> None:
+        """
+        Save losses and metrics data.
+        """
         dirname = os.path.dirname(self.model_path)
 
         metrics = self.extract_metrics()
-        metrics = pd.DataFrame(metrics, index = np.arange(len(metrics)))
+        metrics = pd.DataFrame(metrics, index=np.arange(len(metrics)))
         metrics.index.name = 'epoch'
         metrics.to_csv(os.path.join(dirname, 'metrics.csv'))
-        
+
         losses = pd.DataFrame(self.losses, index=np.arange(len(self.losses)))
-        losses.index.name='epoch'
+        losses.index.name = 'epoch'
         losses.to_csv(os.path.join(dirname, 'losses.csv'))
+
+        print(f"History for {epoch} epochs is saved.")
 
 
 def move_to_device(objects: list, device: torch.device) -> list:
+    """
+    Move all objects to chosen device.
+    """
     objects = list(obj.to(device) for obj in objects)
     return objects
-
