@@ -22,47 +22,50 @@ class DES_Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         setpath = os.path.join(self.path, self.sets[idx])
 
-        g = getdata(os.path.join(setpath,"img_g.fits"),memmap=False)
-        r = getdata(os.path.join(setpath,"img_r.fits"),memmap=False)
-        z = getdata(os.path.join(setpath,"img_z.fits"),memmap=False)
+        g = getdata(os.path.join(setpath, "img_g.fits"), memmap=False)
+        r = getdata(os.path.join(setpath, "img_r.fits"), memmap=False)
+        z = getdata(os.path.join(setpath, "img_z.fits"), memmap=False)
 
         image = np.zeros([DES_Dataset.SIZE, DES_Dataset.SIZE, 3], dtype=np.float32)
 
-        #zscore normalize
-        I = (z+r+g)/3.0
-        Isigma = I*np.mean([np.std(g),np.std(r),np.std(z)])
-        z = (z - np.mean(z))/Isigma
-        r = (r - np.mean(r))/Isigma
-        g = (g - np.mean(g))/Isigma
+        # zscore normalize
+        I = (z + r + g) / 3.0 # noqa E741
+        Isigma = I * np.mean([np.std(g), np.std(r), np.std(z)])
+        z = (z - np.mean(z)) / Isigma
+        r = (r - np.mean(r)) / Isigma
+        g = (g - np.mean(g)) / Isigma
 
-        max_RGB = np.percentile([z,r,g], 99.995)
+        max_RGB = np.percentile([z, r, g], 99.995)
         # avoid saturation
-        r = r/max_RGB; g = g/max_RGB; z = z/max_RGB
-        
+        r = r / max_RGB
+        g = g / max_RGB
+        z = z / max_RGB
+
         if self.add_norm:
             z = normalize_2d(z)
             r = normalize_2d(r)
             g = normalize_2d(g)
 
-        image[:,:,0] = z # red
-        image[:,:,1] = r # green
-        image[:,:,2] = g # blue
+        image[:, :, 0] = z  # red
+        image[:, :, 1] = r  # green
+        image[:, :, 2] = g  # blue
 
-        with fits.open(os.path.join(setpath, 'masks.fits'),memmap=False,lazy_load_hdus=False) as hdul:
+        with fits.open(os.path.join(setpath, 'masks.fits'),
+                       memmap=False, lazy_load_hdus=False) as hdul:
             sources = len(hdul)
-            data = [hdu.data/np.max(hdu.data) for hdu in hdul]
-            labels = [hdu.header["CLASS_ID"] for hdu in hdul] 
+            data = [hdu.data / np.max(hdu.data) for hdu in hdul]
+            labels = [hdu.header["CLASS_ID"] for hdu in hdul]
 
         thresh = [0.005 if i == 1 else 0.08 for i in labels]
-        masks = np.zeros([sources, DES_Dataset.SIZE, DES_Dataset.SIZE],dtype=np.uint8)
+        masks = np.zeros([sources, DES_Dataset.SIZE, DES_Dataset.SIZE], dtype=np.uint8)
         boxes = []
         for i in range(sources):
-            masks[i,:,:][data[i]>thresh[i]] = 1
+            masks[i, :, :][data[i] > thresh[i]] = 1
             boxes.append(get_bbox_from_mask(masks[i]))
 
         masks = torch.as_tensor(masks, dtype=torch.uint8)
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        labels = torch.as_tensor(labels, dtype=torch.int64) 
+        labels = torch.as_tensor(labels, dtype=torch.int64)
         image_id = torch.tensor([idx])
         area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         iscrowd = torch.zeros((sources,), dtype=torch.int64)
