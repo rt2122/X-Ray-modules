@@ -15,6 +15,18 @@ import numpy as np
 from eR_Mask_RCNN.transforms import get_augmentation
 
 
+def check_GPU_memory() -> None:
+    t = torch.cuda.get_device_properties(0).total_memory
+    r = torch.cuda.memory_reserved(0)
+    a = torch.cuda.memory_allocated(0)
+    f = r - a  # free inside reserved
+
+    print(f"Total memory {t}")
+    print(f"Reserved memory {r}")
+    print(f"Allocated memory {a}")
+    print(f"Free memory {f}")
+
+
 def MRCNN_model(num_classes: int) -> MaskRCNN:
     """
     Create Mask R-CNN model with given number of classes.
@@ -71,12 +83,14 @@ class My_Mask_RCNN:
         self.save_hist_freq = save_hist_freq
 
     def prepare_data(self, Dataset_class: Type[torch.utils.data.Dataset], batch_size: int,
-                     add_aug: bool = True, dataset_args: dict = {}) -> None:
+                     add_aug: bool = True, dataset_args: dict = {}, aug_args: dict = {}) -> None:
         """
         Create data loaders for train and test.
         """
-        dataset = Dataset_class(self.train_path, get_augmentation(add_aug), **dataset_args)
-        dataset_val = Dataset_class(self.val_path, get_augmentation(add_aug), **dataset_args)
+        dataset = Dataset_class(self.train_path, get_augmentation(add_aug, **aug_args),
+                                **dataset_args)
+        dataset_val = Dataset_class(self.val_path, get_augmentation(add_aug, **aug_args),
+                                    **dataset_args)
 
         self.data_loader = torch.utils.data.DataLoader(
             dataset, batch_size=batch_size, shuffle=True, num_workers=4,
