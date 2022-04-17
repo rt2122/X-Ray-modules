@@ -88,14 +88,63 @@ class GaussianBlur(T.GaussianBlur):
                 ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         image = F.gaussian_blur(image, self.kernel_size, self.sigma)
         image = normalize_image(image)
+        return image, target
+
+
+def detect_empty_boxes(boxes: torch.Tensor) -> torch.Tensor:
+    """
+    Return array with indexes of non-empty boxes.
+    """
+    return torch.where(torch.logical_and((boxes[:, 2] - boxes[:, 0]) > 0,
+                       (boxes[:, 3] - boxes[:, 1]) > 0))
+
+
+class Clip:
+    """
+    Get smaller picture.
+    """
+    def __init__(self, small_size: int):
+        self.small_size = small_size
+    def __call__(self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+                 ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
+        big_size = image.shape[-1]
+        shift = np.random.randint(0, big_size - self.small_size, 2)
+        slices = [slice(shift[i], shift[i] + self.small_size) for i in range(2)]
+        image = image[:, slices[0], slices[1]]
+        if target is not None:
+            masks = target["masks"]
+            masks = [mask[slices[0], slices[1]] for mask in masks]
+            non_zero_masks = torch.tensor([mask.any() for mask in masks])
+            non_zero_masks = torch.where(non_zero_masks)
+            masks = torch.stack(masks)[non_zero_masks]
+            target["masks"] = masks
+
+            boxes = []
+            for i in range(target['masks'].shape[0]):
+                boxes.append(get_bbox_from_mask(target['masks'].numpy()[i]))
+            boxes = torch.as_tensor(boxes, dtype=torch.float32)
+            target["boxes"] = boxes
+            target["labels"] = target["labels"][non_zero_masks]
+            target["iscrowd"] = target["iscrowd"][non_zero_masks]
+            target["area"] = target["area"][non_zero_masks]
+
+            empty = detect_empty_boxes(boxes)
+            if len(empty) > 0:
+                for k, v in target.items():
+                    if k != "image_id":
+                        target[k] = v[empty]
 
         return image, target
 
 
-def get_augmentation(yes_aug=True):
-    """Get augmentation (if yes_aug) or just transform to tensor."""
+def get_augmentation(yes_aug: bool = True, small_size: int = None):
+    """
+    Get augmentation (if yes_aug) or just transform to tensor.
+    """
     transformations = []
     transformations.append(ToTensor())
+    if small_size is not None:
+        transformations.append(Clip(small_size))
     if yes_aug:
         transformations.append(RandomHorizontalFlip(0.5))
         transformations.append(RandomVerticalFlip(0.5))
