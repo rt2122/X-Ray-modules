@@ -108,7 +108,16 @@ class Clip:
     def __call__(self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
                  ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         big_size = image.shape[-1]
-        shift = np.random.randint(0, big_size - self.small_size, 2)
+        # Chose random box
+        n = np.random.randint(0, len(target["boxes"]))
+        box = target["boxes"][n]
+
+        # Random area should include this box
+        shift = box[:2].int()
+        for i in range(2):
+            if shift[i] + self.small_size >= big_size:
+                shift[i] = big_size - self.small_size - 1
+
         slices = [slice(shift[i], shift[i] + self.small_size) for i in range(2)]
         image = image[:, slices[0], slices[1]]
         if target is not None:
@@ -128,11 +137,12 @@ class Clip:
             target["iscrowd"] = target["iscrowd"][non_zero_masks]
             target["area"] = target["area"][non_zero_masks]
 
-            empty = detect_empty_boxes(boxes)
-            if len(empty) > 0:
-                for k, v in target.items():
-                    if k != "image_id":
-                        target[k] = v[empty]
+            if len(boxes.shape) > 1:
+                empty = detect_empty_boxes(boxes)
+                if len(empty) > 0:
+                    for k, v in target.items():
+                        if k != "image_id":
+                            target[k] = v[empty]
 
         return image, target
 
