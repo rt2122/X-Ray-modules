@@ -147,7 +147,8 @@ class Clip:
         return image, target
 
 
-def get_augmentation(yes_aug: bool = True, small_size: int = None):
+def get_augmentation(yes_aug: bool = True, small_size: int = None,
+                     gauss_args: dict = {"kernel_size": 1, "sigma": (2, 6)}):
     """
     Get augmentation (if yes_aug) or just transform to tensor.
     """
@@ -159,7 +160,7 @@ def get_augmentation(yes_aug: bool = True, small_size: int = None):
         transformations.append(RandomHorizontalFlip(0.5))
         transformations.append(RandomVerticalFlip(0.5))
         transformations.append(Rotation90())
-        transformations.append(GaussianBlur(kernel_size=1, sigma=(2, 6)))
+        transformations.append(GaussianBlur(**gauss_args))
     return Compose(transformations)
 
 
