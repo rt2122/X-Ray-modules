@@ -147,19 +147,24 @@ class Clip:
         return image, target
 
 
-def get_augmentation(yes_aug: bool = True, small_size: int = None,
-                     gauss_args: dict = {"kernel_size": 1, "sigma": (2, 6)}):
+def get_augmentation(yes_aug: bool = True, small_size: int = None, gauss_args: dict = None):
     """
     Get augmentation (if yes_aug) or just transform to tensor.
     """
+
     transformations = []
     transformations.append(ToTensor())
     if small_size is not None:
         transformations.append(Clip(small_size))
     if yes_aug:
+        if gauss_args is None:
+            gauss_args = {"kernel_size": 1, "sigma": (2, 6)}
+
         transformations.append(RandomHorizontalFlip(0.5))
         transformations.append(RandomVerticalFlip(0.5))
         transformations.append(Rotation90())
+        transformations.append(GaussianBlur(**gauss_args))
+    elif gauss_args is not None:
         transformations.append(GaussianBlur(**gauss_args))
     return Compose(transformations)
 
