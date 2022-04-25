@@ -4,13 +4,14 @@ import os
 import numpy as np
 from astropy.io.fits import getdata
 from astropy.io import fits
-from eR_Mask_RCNN.transforms import get_bbox_from_mask, normalize_2d
+from eR_Mask_RCNN.transforms import get_bbox_from_mask, normalize_2d, Compose
 
 
 class DES_Dataset(torch.utils.data.Dataset):
     SIZE = 512
 
-    def __init__(self, path, transforms, add_norm=True):
+    def __init__(self, path: str, transforms: Compose, add_norm: bool = True,
+                 clone_channels: str = None):
         self.path = path
         self.transforms = transforms
         sets = os.listdir(path)
@@ -18,6 +19,7 @@ class DES_Dataset(torch.utils.data.Dataset):
         sets = sorted(sets, key=lambda x: int(x[4:]))
         self.sets = sets
         self.add_norm = add_norm
+        self.clone_channels = clone_channels
 
     def __getitem__(self, idx):
         setpath = os.path.join(self.path, self.sets[idx])
@@ -49,6 +51,17 @@ class DES_Dataset(torch.utils.data.Dataset):
         image[:, :, 0] = z  # red
         image[:, :, 1] = r  # green
         image[:, :, 2] = g  # blue
+
+        if self.clone_channels is not None:
+            clone = None
+            if self.clone_channels == 'z':
+                clone = z
+            elif self.clone_channels == 'r':
+                clone = r
+            elif self.clone_channels == 'g':
+                clone = g
+            if clone is not None:
+                image = np.dstack([clone] * 3)
 
         with fits.open(os.path.join(setpath, 'masks.fits'),
                        memmap=False, lazy_load_hdus=False) as hdul:
