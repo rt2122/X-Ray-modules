@@ -6,33 +6,34 @@ from matplotlib import patches
 from skimage.filters import gaussian
 import cv2
 
-def get_contour(mask: np.ndarray, thr=0.8):
+
+def get_contour(mask: np.ndarray, thr: float = 0.8):
     mask[np.where(mask >= thr)] = 1
     mask = mask.astype(np.uint8)
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     contour_info = []
     for c in contours:
-        d = {'contour' : c, 'area' : cv2.contourArea(c)}
+        d = {'contour': c, 'area': cv2.contourArea(c)}
         contour_info.append((d))
     contour_info = sorted(contour_info, key=lambda c: c['area'], reverse=True)
     contour = contour_info[0]['contour']
-    return contour[:,0,:]
+    return contour[:, 0, :]
 
 
-def show_prediction(pic:torch.Tensor, pred:dict, coef = 0.3, box_c='r', mask_c = 'g', title = '', 
-        limits: tuple = None, mask_mode: bool = False, alpha: float = 0.5, gauss_coef: int = None):
+def show_prediction(pic: torch.Tensor, pred: dict, coef: float = 0.3,
+                    box_c: str = 'r', mask_c: str = 'g', title: str = '', limits: tuple = None,
+                    mask_mode: bool = False, alpha: float = 0.5, gauss_coef: int = None):
     '''
     Visualize input picture and predictions from pytorch Mask-RCNN
     '''
-    #Надо проверить правильно ли каналы расположены
+    # Check order of channels
     ax = get_ax()
     pic = pic.permute(1, 2, 0).numpy().copy()
-    if not gauss_coef is None:
-        pic = gaussian(pic, gauss_coef) 
-    
+    if gauss_coef is not None:
+        pic = gaussian(pic, gauss_coef)
     ax.imshow(pic)
 
-    #Get bboxes 
+    # Get bboxes
     bbox = np.zeros(pic.shape[:2] + (1,))
     for i in range(len(pred['boxes'])):
         box = pred['boxes'][i].detach().numpy()
@@ -40,7 +41,7 @@ def show_prediction(pic:torch.Tensor, pred:dict, coef = 0.3, box_c='r', mask_c =
         rect = patches.Rectangle(box[:2], *sizes, linewidth=1, edgecolor=box_c, facecolor='none')
         ax.add_patch(rect)
 
-    #Get masks
+    # Get masks
     if not mask_mode:
         contours = []
         for i in range(len(pred['masks'])):
@@ -56,9 +57,7 @@ def show_prediction(pic:torch.Tensor, pred:dict, coef = 0.3, box_c='r', mask_c =
             cur_mask = pred['masks'][i].detach().numpy()
             mask = np.logical_or(mask, cur_mask)
         ax.imshow(mask * alpha)
-        
-    
     ax.set_title(title)
-    if not limits is None:
+    if limits is not None:
         ax.set_xlim(limits[0])
         ax.set_ylim(limits[1])

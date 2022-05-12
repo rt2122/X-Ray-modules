@@ -23,7 +23,7 @@ class DES_Dataset(torch.utils.data.Dataset):
             clone_channels = clone_channels[0] * 3
         self.clone_channels = clone_channels
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         setpath = os.path.join(self.path, self.sets[idx])
 
         g = getdata(os.path.join(setpath, "img_g.fits"), memmap=False)
