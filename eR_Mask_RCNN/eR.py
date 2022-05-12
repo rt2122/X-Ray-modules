@@ -1,7 +1,7 @@
 import torch
 import os
 import numpy as np
-from eR_Mask_RCNN.transforms import normalize_2d, get_bbox_from_mask
+from eR_Mask_RCNN.transforms import normalize_2d, get_bbox_from_mask, Compose
 from eR_Mask_RCNN import cat2masks
 from astropy.io.fits import getdata
 
@@ -25,7 +25,7 @@ def load_image(path: str, raw_size: int, grid_size: int):
 
 class eR_Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, path, transforms, raw_size: int = 3240, grid_size: int = 270):
+    def __init__(self, path: str, transforms: Compose, raw_size: int = 3240, grid_size: int = 270):
         self.raw_size = raw_size
         self.grid_size = grid_size
         self.size = raw_size - 2 * grid_size
@@ -35,7 +35,7 @@ class eR_Dataset(torch.utils.data.Dataset):
         self.sets = sorted(sets, key=lambda x: int(x[4:]))
         self.path = path
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         setpath = os.path.join(self.path, self.sets[idx])
         image = load_image(os.path.join(self.path, setpath), self.raw_size, self.grid_size)
 

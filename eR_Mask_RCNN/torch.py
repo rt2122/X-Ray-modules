@@ -8,6 +8,7 @@ from pytorch_References.engine import train_one_epoch, evaluate
 
 from typing import Type, Tuple, List
 from copy import deepcopy
+import time
 import os
 import pandas as pd
 import numpy as np
@@ -144,6 +145,20 @@ class My_Mask_RCNN:
             gts[0][prm] = move_to_device(gts[0][prm], torch.device('cpu'))
         images = move_to_device(images, torch.device('cpu'))
         return images[0], predictions[0], gts[0]
+
+    def measure_inf_time(self):
+        """
+        Measure inference time for one batch.
+        """
+        for images, gts in self.data_loader_val:
+            break
+        images = move_to_device(images, self.device)
+        start = time.time()
+        self.model(images)
+        end = time.time()
+        print(f"For {len(images)} images with shape {images[0].shape}\
+                inference time is {end-start}.")
+        return end - start
 
     def extract_metrics(self) -> List[dict]:
         """

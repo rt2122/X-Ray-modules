@@ -11,7 +11,7 @@ class DES_Dataset(torch.utils.data.Dataset):
     SIZE = 512
 
     def __init__(self, path: str, transforms: Compose, add_norm: bool = True,
-                 clone_channels: str = None):
+                 clone_channels: str = 'zrg'):
         self.path = path
         self.transforms = transforms
         sets = os.listdir(path)
@@ -19,6 +19,8 @@ class DES_Dataset(torch.utils.data.Dataset):
         sets = sorted(sets, key=lambda x: int(x[4:]))
         self.sets = sets
         self.add_norm = add_norm
+        if len(clone_channels) != 3:
+            clone_channels = clone_channels[0] * 3
         self.clone_channels = clone_channels
 
     def __getitem__(self, idx):
@@ -48,20 +50,10 @@ class DES_Dataset(torch.utils.data.Dataset):
             r = normalize_2d(r)
             g = normalize_2d(g)
 
-        image[:, :, 0] = z  # red
-        image[:, :, 1] = r  # green
-        image[:, :, 2] = g  # blue
+        img_dict = {'z': z, 'r': r, 'g': g}
 
-        if self.clone_channels is not None:
-            clone = None
-            if self.clone_channels == 'z':
-                clone = z
-            elif self.clone_channels == 'r':
-                clone = r
-            elif self.clone_channels == 'g':
-                clone = g
-            if clone is not None:
-                image = np.dstack([clone] * 3)
+        for i in range(3):
+            image[:, :, i] = img_dict[self.clone_channels[i]]
 
         with fits.open(os.path.join(setpath, 'masks.fits'),
                        memmap=False, lazy_load_hdus=False) as hdul:
