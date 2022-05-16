@@ -142,7 +142,8 @@ class My_Mask_RCNN:
         predictions = self.model(images)
         for prm in ['masks', 'boxes']:
             predictions[0][prm] = move_to_device(predictions[0][prm], torch.device('cpu'))
-            gts[0][prm] = move_to_device(gts[0][prm], torch.device('cpu'))
+            if gts[0] is not None:
+                gts[0][prm] = move_to_device(gts[0][prm], torch.device('cpu'))
         images = move_to_device(images, torch.device('cpu'))
         return images[0], predictions[0], gts[0]
 

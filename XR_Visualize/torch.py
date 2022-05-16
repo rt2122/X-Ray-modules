@@ -7,7 +7,7 @@ from skimage.filters import gaussian
 import cv2
 
 
-def get_contour(mask: np.ndarray, thr: float = 0.8):
+def get_contour(mask: np.ndarray, thr: float = 0.8) -> np.ndarray:
     mask[np.where(mask >= thr)] = 1
     mask = mask.astype(np.uint8)
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -16,8 +16,10 @@ def get_contour(mask: np.ndarray, thr: float = 0.8):
         d = {'contour': c, 'area': cv2.contourArea(c)}
         contour_info.append((d))
     contour_info = sorted(contour_info, key=lambda c: c['area'], reverse=True)
-    contour = contour_info[0]['contour']
-    return contour[:, 0, :]
+    if len(contour_info) > 0:
+        contour = contour_info[0]['contour']
+        return contour[:, 0, :]
+    return None
 
 
 def show_prediction(pic: torch.Tensor, pred: dict, coef: float = 0.3,
@@ -48,7 +50,9 @@ def show_prediction(pic: torch.Tensor, pred: dict, coef: float = 0.3,
             cur_mask = pred['masks'][i].detach().numpy()
             if cur_mask.shape[0] == 1:
                 cur_mask = cur_mask[0]
-            contours.append(get_contour(cur_mask))
+            c = get_contour(cur_mask)
+            if c is not None:
+                contours.append(c)
         for c in contours:
             ax.plot(c[:, 0], c[:, 1], linewidth=2, c=mask_c)
     else:
