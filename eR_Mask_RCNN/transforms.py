@@ -185,3 +185,11 @@ def normalize_image(image):
         for i in range(image.shape[-1]):
             image[:, :, i] = normalize_2d(image[:, :, i])
     return image
+
+
+def discretize_with_quantile(img: np.ndarray, n_bins: int = 255) -> np.ndarray:
+    """ Flatten histogram of image."""
+
+    p = np.arange(0, 1, 1 / n_bins)
+    q = np.quantile(img.flatten(), p)
+    return np.digitize(img, q).astype(np.float64) - 1
