@@ -76,3 +76,9 @@ class eR_Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.sets)
+
+    def wcs_path(self, idx: int) -> str:
+        """
+        Get path of file for extracting WCS.
+        """
+        return os.path.join(self.path, self.sets[idx], 'exp_tile.fits.gz')

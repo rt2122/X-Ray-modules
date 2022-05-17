@@ -131,23 +131,23 @@ class My_Mask_RCNN:
             if epoch % self.save_hist_freq == 0 or epoch == num_epochs - 1:
                 self.save_history(epoch)
 
-    def make_prediction(self) -> Tuple[torch.Tensor, ...]:
+    def make_prediction(self, idx: int = 0) -> Tuple[torch.Tensor, ...]:
         """
         Make prediction for first batch.
         """
-        for images, gts in self.data_loader_val:
-            break
+        image, gt = self.data_loader_val.dataset[idx]
 
-        images = move_to_device(images, self.device)
-        predictions = self.model(images)
+        image = image.to(self.device)
+        prediction = self.model(image.reshape((1,) + image.shape))[0]
         for prm in ['masks', 'boxes']:
-            predictions[0][prm] = move_to_device(predictions[0][prm], torch.device('cpu'))
-            if gts[0] is not None:
-                gts[0][prm] = move_to_device(gts[0][prm], torch.device('cpu'))
-        images = move_to_device(images, torch.device('cpu'))
-        return images[0], predictions[0], gts[0]
+            prediction[prm] = move_to_device(prediction[prm], torch.device('cpu'))
+            if gt is not None:
+                gt[prm] = move_to_device(gt[prm], torch.device('cpu'))
+        image = image.to(torch.device('cpu'))
+        prediction["image_id"] = gt["image_id"]
+        return image, prediction, gt
 
-    def measure_inf_time(self):
+    def measure_inf_time(self) -> float:
         """
         Measure inference time for one batch.
         """
