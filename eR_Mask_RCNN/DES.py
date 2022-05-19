@@ -11,7 +11,7 @@ class DES_Dataset(torch.utils.data.Dataset):
     SIZE = 512
 
     def __init__(self, path: str, transforms: Compose, add_norm: bool = True,
-                 clone_channels: str = 'zrg'):
+            clone_channels: str = 'zrg', inference: bool = True):
         self.path = path
         self.transforms = transforms
         sets = os.listdir(path)
@@ -22,6 +22,7 @@ class DES_Dataset(torch.utils.data.Dataset):
         if len(clone_channels) != 3:
             clone_channels = clone_channels[0] * 3
         self.clone_channels = clone_channels
+        self.inference = inference
 
     def __getitem__(self, idx: int):
         setpath = os.path.join(self.path, self.sets[idx])
@@ -55,39 +56,42 @@ class DES_Dataset(torch.utils.data.Dataset):
         for i in range(3):
             image[:, :, i] = img_dict[self.clone_channels[i]]
 
-        with fits.open(os.path.join(setpath, 'masks.fits'),
-                       memmap=False, lazy_load_hdus=False) as hdul:
-            sources = len(hdul)
-            data = [hdu.data / np.max(hdu.data) for hdu in hdul]
-            labels = [hdu.header["CLASS_ID"] for hdu in hdul]
+        if not self.inference:
+            with fits.open(os.path.join(setpath, 'masks.fits'),
+                           memmap=False, lazy_load_hdus=False) as hdul:
+                sources = len(hdul)
+                data = [hdu.data / np.max(hdu.data) for hdu in hdul]
+                labels = [hdu.header["CLASS_ID"] for hdu in hdul]
 
-        thresh = [0.005 if i == 1 else 0.08 for i in labels]
-        masks = np.zeros([sources, DES_Dataset.SIZE, DES_Dataset.SIZE], dtype=np.uint8)
-        boxes = []
-        for i in range(sources):
-            masks[i, :, :][data[i] > thresh[i]] = 1
-            boxes.append(get_bbox_from_mask(masks[i]))
+            thresh = [0.005 if i == 1 else 0.08 for i in labels]
+            masks = np.zeros([sources, DES_Dataset.SIZE, DES_Dataset.SIZE], dtype=np.uint8)
+            boxes = []
+            for i in range(sources):
+                masks[i, :, :][data[i] > thresh[i]] = 1
+                boxes.append(get_bbox_from_mask(masks[i]))
 
-        masks = torch.as_tensor(masks, dtype=torch.uint8)
-        boxes = torch.as_tensor(boxes, dtype=torch.float32)
-        labels = torch.as_tensor(labels, dtype=torch.int64)
-        image_id = torch.tensor([idx])
-        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-        iscrowd = torch.zeros((sources,), dtype=torch.int64)
+            masks = torch.as_tensor(masks, dtype=torch.uint8)
+            boxes = torch.as_tensor(boxes, dtype=torch.float32)
+            labels = torch.as_tensor(labels, dtype=torch.int64)
+            image_id = torch.tensor([idx])
+            area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+            iscrowd = torch.zeros((sources,), dtype=torch.int64)
 
-        masks = masks[area != 0, :]
-        boxes = boxes[area != 0, :]
-        labels = labels[area != 0]
-        iscrowd = iscrowd[area != 0]
-        area = area[area != 0]
+            masks = masks[area != 0, :]
+            boxes = boxes[area != 0, :]
+            labels = labels[area != 0]
+            iscrowd = iscrowd[area != 0]
+            area = area[area != 0]
 
-        target = {}
-        target["boxes"] = boxes
-        target["labels"] = labels
-        target["masks"] = masks
-        target["image_id"] = image_id
-        target["area"] = area
-        target["iscrowd"] = iscrowd
+            target = {}
+            target["boxes"] = boxes
+            target["labels"] = labels
+            target["masks"] = masks
+            target["image_id"] = image_id
+            target["area"] = area
+            target["iscrowd"] = iscrowd
+        else:
+            target = None
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
